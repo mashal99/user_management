@@ -165,6 +165,39 @@ async def create_user(user: UserCreate, request: Request, db: AsyncSession = Dep
     )'''
     return UserResponse.from_orm(created_user)
 
+@router.put(
+    "/users/{user_id}/upgrade-professional",
+    response_model=UserResponse,
+    tags=["User Management Requires (Admin or Manager Roles)"],
+    name="upgrade_user_professional"
+)
+async def upgrade_to_professional(
+    user_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))
+):
+    """
+    Upgrade a user's professional status.
+
+    - **user_id**: The UUID of the user to upgrade.
+    """
+    updated_user = await UserService.upgrade_to_professional(db, user_id)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return UserResponse.model_construct(
+        id=updated_user.id,
+        nickname=updated_user.nickname,
+        first_name=updated_user.first_name,
+        last_name=updated_user.last_name,
+        email=updated_user.email,
+        is_professional=updated_user.is_professional,
+        professional_status_updated_at=updated_user.professional_status_updated_at,
+        links=create_user_links(updated_user.id, request)
+    )
+
 
 
 @router.get("/users/", response_model=UserListResponse, tags=["User Management Requires (Admin or Manager Roles)"])
@@ -192,6 +225,8 @@ async def list_users(
         size=len(user_responses),
         links=pagination_links  # Ensure you have appropriate logic to create these links
     )
+
+
 
 
 @router.post("/register/", response_model=UserResponse, tags=["Login and Registration"])
@@ -247,3 +282,4 @@ async def verify_email(user_id: UUID, token: str, db: AsyncSession = Depends(get
     if await UserService.verify_email_with_token(db, user_id, token):
         return {"message": "Email verified successfully"}
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
+
