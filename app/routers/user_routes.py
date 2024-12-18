@@ -166,7 +166,7 @@ async def create_user(user: UserCreate, request: Request, db: AsyncSession = Dep
     return UserResponse.from_orm(created_user)
 
 @router.put(
-    "/users/{user_id}/upgrade-professional",
+    "/users/{user_id}/toggle-professional",
     response_model=UserResponse,
     tags=["User Management Requires (Admin or Manager Roles)"],
     name="upgrade_user_professional"
@@ -187,16 +187,7 @@ async def upgrade_to_professional(
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return UserResponse.model_construct(
-        id=updated_user.id,
-        nickname=updated_user.nickname,
-        first_name=updated_user.first_name,
-        last_name=updated_user.last_name,
-        email=updated_user.email,
-        is_professional=updated_user.is_professional,
-        professional_status_updated_at=updated_user.professional_status_updated_at,
-        links=create_user_links(updated_user.id, request)
-    )
+    return UserResponse.from_orm(updated_user)
 
 
 
