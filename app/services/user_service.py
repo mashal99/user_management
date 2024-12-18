@@ -46,7 +46,11 @@ class UserService:
             return None
 
         # Update the professional status and the timestamp
-        user.update_professional_status(status=True)
+        if(user.is_professional):
+            user.update_professional_status(status=False)
+        else:
+            user.update_professional_status(status=True)
+
         session.add(user)
         await session.commit()
         await session.refresh(user)  # Refresh to return the updated instance
