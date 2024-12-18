@@ -6,6 +6,7 @@ from app.models.user_model import User, UserRole
 from app.utils.nickname_gen import generate_nickname
 from app.utils.security import hash_password
 from app.services.jwt_service import decode_token  # Import your FastAPI app
+from uuid import uuid4
 
 # Example of a test function using the async_client fixture
 @pytest.mark.asyncio
@@ -190,3 +191,50 @@ async def test_list_users_unauthorized(async_client, user_token):
         headers={"Authorization": f"Bearer {user_token}"}
     )
     assert response.status_code == 403  # Forbidden, as expected for regular user
+
+@pytest.mark.asyncio
+async def test_upgrade_to_professional_endpoint_success(async_client: AsyncClient, admin_token: str, user):
+    """
+    Test that an admin can successfully upgrade a user to professional status.
+    """
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = await async_client.put(f"/users/{user.id}/upgrade-professional", headers=headers)
+    
+    assert response.status_code == 200
+    assert response.json()["is_professional"] is True
+    assert response.json()["id"] == str(user.id), "Returned user ID should match"
+
+# Test upgrade to professional for a user that does not exist
+@pytest.mark.asyncio
+async def test_upgrade_to_professional_user_not_found(async_client: AsyncClient, admin_token: str):
+    """
+    Test upgrading a non-existent user results in 404 Not Found.
+    """
+    non_existent_user_id = uuid4()
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = await async_client.put(f"/users/{non_existent_user_id}/upgrade-professional", headers=headers)
+    
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
+
+# Test unauthorized access to the upgrade endpoint
+@pytest.mark.asyncio
+async def test_upgrade_to_professional_unauthorized(async_client: AsyncClient, user):
+    """
+    Test that an unauthenticated user cannot upgrade professional status.
+    """
+    response = await async_client.put(f"/users/{user.id}/upgrade-professional")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+@pytest.mark.asyncio
+async def test_upgrade_to_professional_access_denied(async_client: AsyncClient, user_token: str, user):
+    """
+    Test that a regular user cannot access the upgrade-professional endpoint.
+    """
+    headers = {"Authorization": f"Bearer {user_token}"}
+    response = await async_client.put(f"/users/{user.id}/upgrade-professional", headers=headers)
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Operation not permitted"
+
