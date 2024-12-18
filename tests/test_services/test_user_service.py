@@ -5,6 +5,7 @@ from app.dependencies import get_settings
 from app.models.user_model import User, UserRole
 from app.services.user_service import UserService
 from app.utils.nickname_gen import generate_nickname
+from uuid import uuid4
 
 pytestmark = pytest.mark.asyncio
 
@@ -161,3 +162,60 @@ async def test_unlock_user_account(db_session, locked_user):
     assert unlocked, "The account should be unlocked"
     refreshed_user = await UserService.get_by_id(db_session, locked_user.id)
     assert not refreshed_user.is_locked, "The user should no longer be locked"
+
+# Test successfully upgrading a user to professional status
+async def test_upgrade_to_professional_success(db_session, user):
+    """
+    Test successfully toggling the professional status of a user.
+    """
+    # Initially, the user should not be a professional.
+    assert not user.is_professional, "User should not initially be professional"
+
+    # Upgrade to professional
+    updated_user = await UserService.upgrade_to_professional(db_session, user.id)
+    assert updated_user is not None, "User should be found and updated"
+    assert updated_user.is_professional, "User should be marked as professional"
+    assert updated_user.professional_status_updated_at is not None, "Timestamp should be updated"
+
+# Test toggling a user's professional status multiple times
+async def test_upgrade_to_professional_toggle_state(db_session, user):
+    """
+    Test toggling the professional status of a user multiple times.
+    """
+    # Toggle to professional
+    updated_user = await UserService.upgrade_to_professional(db_session, user.id)
+    assert updated_user is not None, "User should be found and updated"
+    assert updated_user.is_professional, "User should be marked as professional"
+
+    # Store the current timestamp
+    previous_timestamp = updated_user.professional_status_updated_at
+
+    # Toggle back to non-professional
+    updated_user = await UserService.upgrade_to_professional(db_session, user.id)
+    assert not updated_user.is_professional, "User should no longer be professional"
+    assert updated_user.professional_status_updated_at is not None, "Timestamp should still be valid"
+    assert updated_user.professional_status_updated_at != previous_timestamp, "Timestamp should update on toggling"
+
+# Test attempting to upgrade a non-existent user
+async def test_upgrade_to_professional_user_not_found(db_session):
+    """
+    Test trying to toggle the professional status of a non-existent user.
+    """
+    non_existent_user_id = uuid4()
+    updated_user = await UserService.upgrade_to_professional(db_session, non_existent_user_id)
+    assert updated_user is None, "The method should return None for a non-existent user"
+
+# Test upgrading a user already marked as professional
+async def test_upgrade_to_professional_already_professional(db_session, user):
+    """
+    Test upgrading a user who is already marked as professional.
+    """
+    # First, upgrade the user to professional
+    updated_user = await UserService.upgrade_to_professional(db_session, user.id)
+    assert updated_user is not None, "User should be found and updated"
+    assert updated_user.is_professional, "User should be marked as professional"
+
+    # Attempt to upgrade again (should toggle back)
+    updated_user = await UserService.upgrade_to_professional(db_session, user.id)
+    assert not updated_user.is_professional, "User should toggle back to non-professional"
+
