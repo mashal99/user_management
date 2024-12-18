@@ -139,3 +139,48 @@ async def test_update_user_role(db_session: AsyncSession, user: User):
     await db_session.commit()
     await db_session.refresh(user)
     assert user.role == UserRole.ADMIN, "Role update should persist correctly in the database"
+
+@pytest.mark.asyncio
+async def test_set_professional_status_true(db_session: AsyncSession, user: User):
+    """
+    Tests setting the professional status to True and ensuring the timestamp is updated.
+    """
+    # Initially, the user should not be a professional.
+    assert not user.is_professional, "User should not initially be professional"
+    assert user.professional_status_updated_at is None, "Timestamp should initially be None"
+
+    # Update the professional status to True.
+    user.update_professional_status(True)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    # Verify the status and timestamp.
+    assert user.is_professional, "User should be marked as professional after update"
+    assert user.professional_status_updated_at is not None, "Timestamp should be set after updating professional status"
+
+
+@pytest.mark.asyncio
+async def test_set_professional_status_false(db_session: AsyncSession, user: User):
+    """
+    Tests setting the professional status to False after it was set to True,
+    and ensuring the timestamp remains valid.
+    """
+    # First, set the professional status to True.
+    user.update_professional_status(True)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    # Store the timestamp after setting to True.
+    previous_timestamp = user.professional_status_updated_at
+    assert user.is_professional, "User should be marked as professional before toggling back"
+    assert previous_timestamp is not None, "Timestamp should not be None after setting to professional"
+
+    # Update the professional status to False.
+    user.update_professional_status(False)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    # Verify the status and timestamp.
+    assert not user.is_professional, "User should no longer be professional after update"
+    assert user.professional_status_updated_at is not None, "Timestamp should remain valid after toggling status"
+    assert user.professional_status_updated_at >= previous_timestamp, "Timestamp should not regress after update"
