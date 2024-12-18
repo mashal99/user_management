@@ -30,6 +30,29 @@ class UserService:
             logger.error(f"Database error: {e}")
             await session.rollback()
             return None
+        
+    @classmethod
+    async def upgrade_to_professional(cls, session: AsyncSession, user_id: UUID) -> Optional[User]:
+        """
+        Upgrade a user's professional status to True.
+        
+        :param session: The AsyncSession instance for database access.
+        :param user_id: The UUID of the user to upgrade.
+        :return: The updated User instance, or None if the user is not found.
+        """
+        user = await cls.get_by_id(session, user_id)
+        if not user:
+            logger.error(f"User with ID {user_id} not found.")
+            return None
+
+        # Update the professional status and the timestamp
+        user.update_professional_status(status=True)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)  # Refresh to return the updated instance
+        logger.info(f"User {user_id} upgraded to professional status.")
+        return user
+
 
     @classmethod
     async def _fetch_user(cls, session: AsyncSession, **filters) -> Optional[User]:
